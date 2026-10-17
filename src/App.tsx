@@ -81,6 +81,22 @@ function ThemeIcon({ dark }: { dark: boolean }) {
   )
 }
 
+function PlayIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className="h-4 w-4">
+      <path d="M8 5.4v13.2L19 12z" />
+    </svg>
+  )
+}
+
+function PauseIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className="h-4 w-4">
+      <path d="M7 5h3.6v14H7zM13.4 5H17v14h-3.6z" />
+    </svg>
+  )
+}
+
 export default function App() {
   const [tasks, setTasks] = useState<Task[]>(readTasks)
   const [stats, setStats] = useState<DailyStats>(readStats)
@@ -211,12 +227,12 @@ export default function App() {
   }
 
   return (
-    <main className="min-h-screen px-4 py-7 sm:py-10">
-      <div className="mx-auto flex w-full max-w-[480px] flex-col gap-5">
+    <main className="min-h-screen px-4 py-6 sm:py-8">
+      <div className="mx-auto flex w-full max-w-[480px] flex-col gap-4">
         <header className="flex items-center justify-between px-1">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Фокус</h1>
-            <p className="mt-1 capitalize text-sm text-slate-500 dark:text-slate-400">{displayDate}</p>
+            <h1 className="text-xl font-semibold tracking-tight text-[#1a1a1a] dark:text-white">Фокус</h1>
+            <p className="mt-0.5 capitalize text-sm text-[#1a1a1a]/55 dark:text-white/55">{displayDate}</p>
           </div>
           <button
             className="icon-button"
@@ -230,7 +246,7 @@ export default function App() {
 
         <section className="card p-5 sm:p-7" aria-labelledby="timer-heading">
           <h2 id="timer-heading" className="sr-only">Таймер</h2>
-          <div className="relative grid grid-cols-2 rounded-xl bg-slate-100 p-1 dark:bg-slate-800">
+          <div className="relative grid grid-cols-2 rounded-[4px] border border-[#1a1a1a]/15 p-1 dark:border-white/20">
             <span
               className={`mode-indicator ${mode === 'rest' ? 'translate-x-full' : 'translate-x-0'}`}
               aria-hidden="true"
@@ -238,28 +254,29 @@ export default function App() {
             {(['work', 'rest'] as Mode[]).map((item) => (
               <button
                 key={item}
-                className={`relative z-10 rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors ${
-                  mode === item ? 'text-indigo-700 dark:text-indigo-300' : 'text-slate-500 dark:text-slate-400'
+                className={`relative z-10 rounded-[4px] px-3 py-2.5 text-sm font-semibold whitespace-nowrap transition-colors ${
+                  mode === item ? 'text-white dark:text-black' : 'text-[#1a1a1a]/55 dark:text-white/55'
                 }`}
                 onClick={() => chooseMode(item)}
                 aria-pressed={mode === item}
               >
-                {item === 'work' ? 'Работа' : 'Отдых'}
+                {item === 'work' ? 'Работа' : 'Отдых'} · {DURATIONS[item] / 60} мин
               </button>
             ))}
           </div>
 
-          <div className="py-8 text-center sm:py-10">
-            <p className="timer-digits text-[72px] leading-none font-bold tracking-[-0.06em] text-slate-900 tabular-nums sm:text-[84px] dark:text-white">
+          <div className="py-6 text-center sm:py-8">
+            <p className="timer-digits text-[clamp(4rem,20vw,5.5rem)] leading-none font-medium tracking-tight text-[#1a1a1a] tabular-nums dark:text-white">
               {time}
-            </p>
-            <p className="mt-3 text-sm font-medium text-slate-400 dark:text-slate-500">
-              {mode === 'work' ? 'Время сосредоточиться' : 'Можно немного передохнуть'}
             </p>
           </div>
 
           <div className="grid grid-cols-[1fr_auto] gap-3">
-            <button className="primary-button" onClick={() => setRunning((value) => !value)}>
+            <button
+              className="primary-button inline-flex items-center justify-center gap-2.5"
+              onClick={() => setRunning((value) => !value)}
+            >
+              {running ? <PauseIcon /> : <PlayIcon />}
               {running ? 'Пауза' : 'Старт'}
             </button>
             <button
@@ -276,8 +293,8 @@ export default function App() {
 
         <section className="card p-5 sm:p-6" aria-labelledby="tasks-heading">
           <div className="mb-4 flex items-center justify-between">
-            <h2 id="tasks-heading" className="text-lg font-bold text-slate-900 dark:text-white">Задачи</h2>
-            {tasks.length > 0 && <span className="text-sm text-slate-400">{tasks.length}</span>}
+            <h2 id="tasks-heading" className="text-base font-semibold text-[#1a1a1a] dark:text-white">Задачи</h2>
+            {tasks.length > 0 && <span className="text-sm text-[#1a1a1a]/55 dark:text-white/55">{tasks.length}</span>}
           </div>
           <div className="flex gap-2">
             <label className="sr-only" htmlFor="new-task">Новая задача</label>
@@ -296,7 +313,7 @@ export default function App() {
           </div>
 
           {tasks.length === 0 ? (
-            <p className="py-8 text-center text-sm text-slate-400 dark:text-slate-500">
+            <p className="py-6 text-center text-sm text-[#1a1a1a]/55 dark:text-white/55">
               Пока нет задач. Добавь первую!
             </p>
           ) : (
@@ -314,7 +331,7 @@ export default function App() {
                     aria-label={`Отметить задачу «${task.text}»`}
                   />
                   <span className={`min-w-0 flex-1 text-sm transition-all duration-200 ${
-                    task.completed ? 'text-slate-400 line-through opacity-70' : 'text-slate-700 dark:text-slate-200'
+                    task.completed ? 'text-[#1a1a1a]/40 line-through dark:text-white/40' : 'text-[#1a1a1a] dark:text-white'
                   }`}>
                     {task.text}
                   </span>
@@ -332,22 +349,22 @@ export default function App() {
         </section>
 
         <section className="card p-5" aria-labelledby="progress-heading">
-          <h2 id="progress-heading" className="mb-3 text-sm font-bold text-slate-900 dark:text-white">
+          <h2 id="progress-heading" className="mb-3 text-sm font-semibold text-[#1a1a1a] dark:text-white">
             Прогресс за сегодня
           </h2>
-          <div className="space-y-1.5 text-sm text-slate-600 dark:text-slate-300">
-            <p>Выполнено сегодня: <strong>{completed} из {todayTasks.length} задач</strong></p>
-            <p>Время фокуса сегодня: <strong>{stats.focusMinutes} мин</strong></p>
+          <div className="space-y-1.5 text-sm text-[#1a1a1a]/70 dark:text-white/70">
+            <p>Выполнено сегодня: <strong className="text-[#1a1a1a] dark:text-white">{completed} из {todayTasks.length} задач</strong></p>
+            <p>Время фокуса сегодня: <strong className="text-[#1a1a1a] dark:text-white">{stats.focusMinutes} мин</strong></p>
           </div>
           <div
-            className="mt-4 h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800"
+            className="mt-4 h-1.5 overflow-hidden rounded-[2px] bg-[#1a1a1a]/10 dark:bg-white/15"
             role="progressbar"
             aria-label="Выполненные задачи"
             aria-valuemin={0}
             aria-valuemax={100}
             aria-valuenow={progress}
           >
-            <div className="h-full rounded-full bg-indigo-500 transition-all duration-300" style={{ width: `${progress}%` }} />
+            <div className="h-full rounded-[2px] bg-[#1a1a1a] transition-all duration-300 dark:bg-white" style={{ width: `${progress}%` }} />
           </div>
         </section>
       </div>

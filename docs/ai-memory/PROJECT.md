@@ -14,6 +14,8 @@ React 19 · Vite 8 · TypeScript (strict) · Tailwind CSS v4 (`@tailwindcss/vite
 ## Данные (localStorage)
 - `Task = { id, text, completed, completedDate? }` → `focus-tasks`
 - `DailyStats = { date, focusMinutes }` → `focus-stats` (сбрасывается при смене дня)
+- `DayMinutes = { [YYYY-MM-DD]: minutes }` → `focus-days` (история концентрации по дням; нужна для серии)
+- `StreakData = { current, best }` → `focus-streak` (текущая серия и рекорд; порог дня `FOCUS_GOAL_MINUTES = 60`)
 - Тема → `focus-theme` (`dark` | `light`), класс `dark` на `<html>`
 
 ## Внешний вид

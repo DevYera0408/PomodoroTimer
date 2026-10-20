@@ -3,8 +3,11 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 type Mode = 'work' | 'rest'
 type Task = { id: string; text: string; completed: boolean; completedDate?: string }
 type DailyStats = { date: string; focusMinutes: number }
+type DayMinutes = Record<string, number>
+type StreakData = { current: number; best: number }
 
 const DURATIONS: Record<Mode, number> = { work: 25 * 60, rest: 5 * 60 }
+const FOCUS_GOAL_MINUTES = 60
 
 const dateKey = () => {
   const now = new Date()
@@ -37,6 +40,74 @@ const readStats = (): DailyStats => {
     // Start fresh if saved data cannot be read.
   }
   return { date: dateKey(), focusMinutes: 0 }
+}
+
+const readDays = (): DayMinutes => {
+  try {
+    const saved = JSON.parse(localStorage.getItem('focus-days') ?? '{}')
+    if (saved && typeof saved === 'object' && !Array.isArray(saved)) {
+      const result: DayMinutes = {}
+      for (const [key, value] of Object.entries(saved)) {
+        if (typeof value === 'number' && Number.isFinite(value)) result[key] = value
+      }
+      return result
+    }
+  } catch {
+    // Start with an empty history if saved data cannot be read.
+  }
+  return {}
+}
+
+const readStreak = (): StreakData => {
+  try {
+    const saved = JSON.parse(localStorage.getItem('focus-streak') ?? '{}')
+    if (saved && typeof saved === 'object') {
+      return {
+        current: typeof saved.current === 'number' ? saved.current : 0,
+        best: typeof saved.best === 'number' ? saved.best : 0,
+      }
+    }
+  } catch {
+    // Start with an empty streak if saved data cannot be read.
+  }
+  return { current: 0, best: 0 }
+}
+
+const shiftDay = (key: string, delta: number) => {
+  const [year, month, day] = key.split('-').map(Number)
+  const date = new Date(year, month - 1, day + delta)
+  const offset = date.getTimezoneOffset()
+  return new Date(date.getTime() - offset * 60_000).toISOString().slice(0, 10)
+}
+
+const computeStreak = (days: DayMinutes, today: string) => {
+  let cursor = (days[today] ?? 0) >= FOCUS_GOAL_MINUTES ? today : shiftDay(today, -1)
+  let count = 0
+  while ((days[cursor] ?? 0) >= FOCUS_GOAL_MINUTES) {
+    count += 1
+    cursor = shiftDay(cursor, -1)
+  }
+  return count
+}
+
+const isMilestone = (day: number) => day >= 10 && day % 10 === 0
+
+const MILESTONE_NAMES: Record<number, string> = {
+  10: 'Первый рубеж',
+  20: 'На волне',
+  30: 'Мастер фокуса',
+  40: 'Железная воля',
+  50: 'Полтинник',
+}
+
+const rewardName = (day: number) => MILESTONE_NAMES[day] ?? `Серия ${day} дней`
+
+const daysLabel = (value: number) => {
+  const mod10 = value % 10
+  const mod100 = value % 100
+  if (mod10 === 1 && mod100 !== 11) return 'день'
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return 'дня'
+  return 'дней'
 }
 
 let audioContext: AudioContext | undefined
@@ -97,9 +168,55 @@ function PauseIcon() {
   )
 }
 
+function FlameIcon({ lit }: { lit: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden="true"
+      className={`streak-flame ${lit ? 'streak-flame--lit' : ''}`}
+    >
+      <path d="M12 2s-5 5-5 10a5 5 0 0 0 10 0c0-2-1-3.5-2-4.5 0 1.5-1 2.5-2 2.5.7-2.5.5-6-1-8Z" />
+    </svg>
+  )
+}
+
+function RewardIcon({ day }: { day: number }) {
+  switch (Math.floor(day / 10) % 4) {
+    case 1:
+      return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+          <circle cx="12" cy="10" r="5" />
+          <path d="m8.5 14-1.5 7 5-2.5 5 2.5-1.5-7" strokeLinejoin="round" />
+        </svg>
+      )
+    case 2:
+      return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+          <path d="M12 3v18M5 7h14M6 7l-2.5 6a3 3 0 0 0 5 0L6 7Zm12 0-2.5 6a3 3 0 0 0 5 0L18 7Z" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      )
+    case 3:
+      return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+          <path d="m12 3 2.6 5.4 5.9.8-4.3 4.1 1 5.9-5.2-2.8-5.2 2.8 1-5.9L3.5 9.2l5.9-.8L12 3Z" strokeLinejoin="round" />
+        </svg>
+      )
+    default:
+      return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+          <path d="m3 8 4 10h10l4-10-6 4-3-6-3 6-6-4Z" strokeLinejoin="round" />
+        </svg>
+      )
+  }
+}
+
 export default function App() {
   const [tasks, setTasks] = useState<Task[]>(readTasks)
   const [stats, setStats] = useState<DailyStats>(readStats)
+  const [days, setDays] = useState<DayMinutes>(readDays)
+  const [streak, setStreak] = useState<StreakData>(readStreak)
+  const [reward, setReward] = useState<number>()
   const [mode, setMode] = useState<Mode>('work')
   const [seconds, setSeconds] = useState(DURATIONS.work)
   const [running, setRunning] = useState(false)
@@ -114,6 +231,8 @@ export default function App() {
   })
   const inputRef = useRef<HTMLInputElement>(null)
   const workSecondsRef = useRef(0)
+  const sessionDayRef = useRef(dateKey())
+  const streakSeenRef = useRef(streak.current)
   const today = stats.date
 
   useEffect(() => {
@@ -127,6 +246,18 @@ export default function App() {
       localStorage.setItem('focus-stats', JSON.stringify(stats))
     } catch {}
   }, [stats])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('focus-days', JSON.stringify(days))
+    } catch {}
+  }, [days])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('focus-streak', JSON.stringify(streak))
+    } catch {}
+  }, [streak])
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', dark)
@@ -151,12 +282,15 @@ export default function App() {
 
   useEffect(() => {
     if (!running) return
+    if (mode === 'work') sessionDayRef.current = dateKey()
     const id = window.setInterval(() => {
       setSeconds((value) => (value > 0 ? value - 1 : 0))
       if (mode === 'work') {
         workSecondsRef.current += 1
         if (workSecondsRef.current % 60 === 0) {
           setStats((current) => ({ ...current, focusMinutes: current.focusMinutes + 1 }))
+          const sessionDay = sessionDayRef.current
+          setDays((current) => ({ ...current, [sessionDay]: (current[sessionDay] ?? 0) + 1 }))
         }
       }
     }, 1000)
@@ -175,6 +309,26 @@ export default function App() {
     }
   }, [seconds, mode])
 
+  useEffect(() => {
+    const current = computeStreak(days, dateKey())
+    setStreak((prev) =>
+      current === prev.current && current <= prev.best
+        ? prev
+        : { current, best: Math.max(prev.best, current) },
+    )
+  }, [days])
+
+  useEffect(() => {
+    const previous = streakSeenRef.current
+    streakSeenRef.current = streak.current
+    if (streak.current <= previous) return
+    for (let day = previous + 1; day <= streak.current; day += 1) {
+      if (!isMilestone(day)) continue
+      setReward(day)
+      window.setTimeout(() => setReward((value) => (value === day ? undefined : value)), 4000)
+    }
+  }, [streak.current])
+
   const todayTasks = useMemo(
     () => tasks.filter((task) => !task.completed || task.completedDate === today),
     [tasks, today],
@@ -184,6 +338,15 @@ export default function App() {
     [todayTasks],
   )
   const progress = todayTasks.length ? Math.round((completed / todayTasks.length) * 100) : 0
+  const goalReached = stats.focusMinutes >= FOCUS_GOAL_MINUTES
+  const goalPercent = Math.min(100, Math.round((stats.focusMinutes / FOCUS_GOAL_MINUTES) * 100))
+  const milestones = useMemo(() => {
+    const highest = Math.max(streak.current, streak.best, 10)
+    const last = (Math.floor(highest / 10) + 2) * 10
+    const list: number[] = []
+    for (let day = 10; day <= last; day += 10) list.push(day)
+    return list
+  }, [streak.current, streak.best])
   const time = `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`
   const displayDate = new Intl.DateTimeFormat('ru-RU', {
     day: 'numeric',
@@ -232,7 +395,7 @@ export default function App() {
         <header className="flex items-center justify-between px-1">
           <div>
             <h1 className="text-xl font-semibold tracking-tight text-[#1a1a1a] dark:text-white">Фокус</h1>
-            <p className="mt-0.5 capitalize text-sm text-[#1a1a1a]/55 dark:text-white/55">{displayDate}</p>
+            <p className="mt-0.5 capitalize text-sm text-[#1a1a1a]/70 dark:text-white/70">{displayDate}</p>
           </div>
           <button
             className="icon-button"
@@ -245,7 +408,7 @@ export default function App() {
         </header>
 
         <section className="card p-5 sm:p-7" aria-labelledby="timer-heading">
-          <h2 id="timer-heading" className="sr-only">Таймер</h2>
+          <h2 id="timer-heading" className="mb-3 text-xs font-semibold text-[#1a1a1a]/70 dark:text-white/70">Таймер</h2>
           <div className="relative grid grid-cols-2 rounded-[4px] border border-[#1a1a1a]/15 p-1 dark:border-white/20">
             <span
               className={`mode-indicator ${mode === 'rest' ? 'translate-x-full' : 'translate-x-0'}`}
@@ -288,6 +451,47 @@ export default function App() {
             >
               Сброс
             </button>
+          </div>
+        </section>
+
+        <section className="card p-5" aria-labelledby="streak-heading">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <FlameIcon lit={goalReached} />
+              <div>
+                <h2 id="streak-heading" className="text-sm font-semibold text-[#1a1a1a] dark:text-white">
+                  Серия дней
+                </h2>
+                <p className="mt-0.5 text-sm text-[#1a1a1a]/70 dark:text-white/70">
+                  <strong className="text-[#1a1a1a] dark:text-white">{streak.current}</strong>{' '}
+                  {daysLabel(streak.current)} подряд
+                </p>
+              </div>
+            </div>
+            <p className="text-sm text-[#1a1a1a]/55 dark:text-white/55">
+              Рекорд: <strong className="text-[#1a1a1a] dark:text-white">{streak.best}</strong>
+            </p>
+          </div>
+          <div className="mt-4 flex items-center justify-between text-sm text-[#1a1a1a]/70 dark:text-white/70">
+            <span>{goalReached ? 'Цель дня достигнута' : 'Концентрация сегодня'}</span>
+            <strong className="tabular-nums text-[#1a1a1a] dark:text-white">
+              {stats.focusMinutes} / {FOCUS_GOAL_MINUTES} мин
+            </strong>
+          </div>
+          <div
+            className="mt-2 h-1.5 overflow-hidden rounded-[2px] bg-[#1a1a1a]/10 dark:bg-white/15"
+            role="progressbar"
+            aria-label="Прогресс дня"
+            aria-valuemin={0}
+            aria-valuemax={FOCUS_GOAL_MINUTES}
+            aria-valuenow={Math.min(stats.focusMinutes, FOCUS_GOAL_MINUTES)}
+          >
+            <div
+              className={`h-full rounded-[2px] transition-all duration-300 ${
+                goalReached ? 'bg-[#1a1a1a] dark:bg-white' : 'bg-[#1a1a1a]/45 dark:bg-white/45'
+              }`}
+              style={{ width: `${goalPercent}%` }}
+            />
           </div>
         </section>
 
@@ -367,7 +571,50 @@ export default function App() {
             <div className="h-full rounded-[2px] bg-[#1a1a1a] transition-all duration-300 dark:bg-white" style={{ width: `${progress}%` }} />
           </div>
         </section>
+
+        <section className="card p-5" aria-labelledby="achievements-heading">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 id="achievements-heading" className="text-sm font-semibold text-[#1a1a1a] dark:text-white">
+              Достижения
+            </h2>
+            <span className="text-sm text-[#1a1a1a]/55 dark:text-white/55">
+              {milestones.filter((day) => day <= streak.best).length} из {milestones.length}
+            </span>
+          </div>
+          <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+            {milestones.map((day) => {
+              const earned = day <= streak.best
+              return (
+                <li key={day} className={`achievement-badge ${earned ? '' : 'achievement-badge--locked'}`}>
+                  <span className="achievement-icon">
+                    <RewardIcon day={day} />
+                  </span>
+                  <span className="text-xs font-semibold text-[#1a1a1a] dark:text-white">{day}</span>
+                  <span className="text-[0.68rem] leading-tight text-[#1a1a1a]/60 dark:text-white/60">
+                    {earned
+                      ? rewardName(day)
+                      : `осталось ${day - streak.current} ${daysLabel(day - streak.current)}`}
+                  </span>
+                </li>
+              )
+            })}
+          </ul>
+        </section>
       </div>
+
+      {reward !== undefined && (
+        <div className="reward-toast" role="status" aria-live="polite">
+          <span className="achievement-icon">
+            <RewardIcon day={reward} />
+          </span>
+          <span>
+            <strong className="block text-sm">Награда: {rewardName(reward)}</strong>
+            <span className="text-xs opacity-70">
+              Серия {reward} {daysLabel(reward)} подряд
+            </span>
+          </span>
+        </div>
+      )}
     </main>
   )
 }

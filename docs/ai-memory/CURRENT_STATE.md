@@ -67,7 +67,13 @@
 ## Следующий шаг (streak)
 Проверить в браузере: набрать 60 минут работы → огонёк зажигается, серия +1; веха 10 дней → тост и значок в «Достижениях».
 
-## Обновление 2026-10-19 — проект бэкенда
+## Обновление 2026-10-22 — удаление следов экспорта Figma Make (ветка `chore/cleanup-origin-traces`)
+- Инвентаризация: следы только в `package.json` (`figma-make-app`), `vite.config.ts` (4 плагина + env `FIGMA_*` + импорт `.figma/make/site.json`), `index.html` (комментарии-слоты `figma:*`), `.figma/` (9 файлов), `.gitignore`, favicon.svg (глиф продукта Make), в baseline `dist/index.html` — `og:title "Figma Make App"`. Unsplash/ImageWithFallback/make-server/Guidelines/ATTRIBUTIONS — не найдены; секретов нет; LICENSE/NOTICE отсутствуют, атрибуции не удалялись.
+- Сделано: пакет переименован в `focus` (+регенерация pnpm-lock), плагины удалены, `index.html` получил description/robots noindex/favicon/og: статикой, robots.txt сохранён статикой в `public/robots.txt`, `.figma/` удалена, favicon заменён нейтральным, AGENTS.md актуализирован, 6 коммитов, история не переписывалась.
+- Проверено: `pnpm build` EXIT=0, `npx tsc --noEmit` EXIT=0, `dist/` чистый (grep figma — 0), dev-сервер стартует, консоль без ошибок; скриншоты «до/после» (light+dark, 1024px) идентичны (в `/tmp/opencode/`).
+- НЕ сделано: PROJECT_AUDIT.md и docs/ai-memory (исторические упоминания — вопрос к человеку); сел/деплой/`.env` — были отложены ранее; make-скрипты `.figma` удалялись с согласия по ТЗ.
+
+## Обновление 2026-10-22 — деплой
 - Создан документ `docs/backend-foundation.md`: текущая модель данных (Task, DailyStats, DayMinutes, StreakData, Theme), предлагаемый стек (Node 22 + Fastify + Prisma + PostgreSQL), структура `server/`, API-контракт v1 (health, tasks CRUD, stats/history/streak, settings/theme), маппинг localStorage ↔ БД ↔ API ↔ TS, правила дат/таймзон, стратегия миграции/офлайн/feature-flag, безопасность на уровне контракта, план этапов 0–5, открытые вопросы.
 - **НЕ реализовано:** код сервера, БД, деплой, зависимости; `package.json` клиента не менялся.
 - **Следующий шаг:** согласовать открытые вопросы (БД, авторизация, конфликты минут, вехи > 50) и при подтверждении начать этап 1 (каркас + health).

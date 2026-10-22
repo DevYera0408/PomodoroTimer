@@ -60,3 +60,8 @@
 - Новых ключей localStorage и зависимостей нет; данных истории пока обычно мало — карта заполнится по мере использования.
 - `pnpm build` EXIT=0. Рантайм в браузере не проверялся (проверяет пользователь).
 - Деплой на Vercel: CLI через `pnpm dlx vercel@latest` установлен (65.0.0), но не залогинен; пользователь решил залогиниться и задеплоить сам.
+
+## 2026-10-22 — Очистка следов экспорта Figma Make
+- Ветка `chore/cleanup-origin-traces`, 6 коммитов, история не переписывалась. Удалялись: 4 Figma-плагина в `vite.config.ts`, каталог `.figma/`, комментарии `figma:*` в `index.html`, правила `.figma` в `.gitignore`, фирменный favicon. Пакет `figma-make-app` → `focus` (lockfile перегенерирован `pnpm install`). Метатеги (description, robots noindex, favicon, og:) перенесены из плагина в `index.html` статикой; `public/robots.txt` сохранён.
+- Baseline/итог: build + tsc EXIT=0; `dist/` чист после grep; скриншоты light/dark «до/после» идентичны (`/tmp/opencode/baseline-*.png`, `after-*.png`); инвентаризация — `/tmp/opencode/cleanup-inventory.md`.
+- Открытые вопросы: имя пакета (`focus`?) и `noindex/robots.txt Disallow: /` (сохранены как были); PROJECT_AUDIT.md и записи памяти содержат исторические упоминания; судьба git-истории (10 коммитов касаются figma-файлов).

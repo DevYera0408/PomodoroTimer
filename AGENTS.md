@@ -1,7 +1,7 @@
 # AGENTS.md — «Фокус» (Pomodoro + tasks + daily progress)
 
 Small student web app. UI text is Russian. No backend, no accounts, no external APIs. Data lives in localStorage.
-Exported from Figma Make; now developed locally. Ignore any older notes about a "running Figma dev server": run it yourself only if I ask.
+Run the dev server yourself only if I ask.
 
 ## Stack (installed, do not add deps without asking)
 React 19 · Vite 8 · TypeScript (strict) · Tailwind CSS v4 (`@tailwindcss/vite`, NO tailwind.config, NO postcss) · pnpm · Node 22.
@@ -11,7 +11,7 @@ Not installed: Zustand, Framer Motion, lucide-react, router. Icons are inline SV
 - `src/App.tsx` — whole app (~310 lines): types, helpers (`dateKey`, `readTasks`, `readStats`, `playBeep`), icons, `App` component.
 - `src/index.css` — Tailwind import, dark variant, custom classes: `.card .primary-button .secondary-button .icon-button .add-button .task-input .task-row .task-checkbox .delete-button .mode-indicator .animate-task-in` (+ `@keyframes task-in`). Reuse these before inventing new styles.
 - `src/main.tsx`, `index.html` — entry/shell, rarely touched.
-- DO NOT TOUCH: `.figma/`, `vite.config.ts` (Figma plugins; only the `@` alias and port 8443 matter), `pnpm-lock.yaml`, `.mise.toml`, `CLAUDE.md`.
+- DO NOT TOUCH: `pnpm-lock.yaml`, `.mise.toml`, `CLAUDE.md`.
 
 ## Commands (run only when I ask)
 - dev: `pnpm dev` (port 8443) · build: `pnpm build` · typecheck: `npx tsc --noEmit`
@@ -39,7 +39,7 @@ Not installed: Zustand, Framer Motion, lucide-react, router. Icons are inline SV
 1. Reply with code or a diff only. No explanations or summaries. Max 2 sentences of text unless asked.
 2. Use targeted edits. Never rewrite or re-print whole files or unchanged code.
 3. Don't read whole files: grep first, then read the needed lines. App.tsx is the only file that usually matters.
-4. Never open node_modules, dist, lockfiles, `.git`, `.figma`.
+4. Never open node_modules, dist, lockfiles, `.git`.
 5. Don't re-read a file you just edited or already have in context.
 6. Don't run dev/build/tests/typecheck unless I ask. I check in the browser.
 7. One task = one focused change. No refactors, renames, formatting passes, comments, docs, or new files I didn't request.

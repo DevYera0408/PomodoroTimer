@@ -371,3 +371,35 @@ button:focus-visible, input:focus-visible {
     transition-duration: 0.01ms !important;
   }
 }
+
+.heatmap {
+  display: flex;
+  gap: 3px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.heat-column {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: none;
+}
+
+.heat-cell {
+  width: 11px;
+  height: 11px;
+  border-radius: 2px;
+  background: rgba(26, 26, 26, 0.07);
+}
+
+.heat-cell--l1 { background: rgba(26, 26, 26, 0.28); }
+.heat-cell--l2 { background: rgba(26, 26, 26, 0.5); }
+.heat-cell--l3 { background: rgba(26, 26, 26, 0.75); }
+.heat-cell--l4 { background: #1a1a1a; }
+
+.dark .heat-cell { background: rgba(255, 255, 255, 0.08); }
+.dark .heat-cell--l1 { background: rgba(255, 255, 255, 0.25); }
+.dark .heat-cell--l2 { background: rgba(255, 255, 255, 0.45); }
+.dark .heat-cell--l3 { background: rgba(255, 255, 255, 0.7); }
+.dark .heat-cell--l4 { background: #ffffff; }

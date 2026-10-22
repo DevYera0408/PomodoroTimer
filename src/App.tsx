@@ -92,6 +92,19 @@ const computeStreak = (days: DayMinutes, today: string) => {
 
 const isMilestone = (day: number) => day >= 10 && day % 10 === 0
 
+const heatLevel = (minutes: number) =>
+  minutes <= 0 ? 0 : minutes < 15 ? 1 : minutes < 30 ? 2 : minutes < 60 ? 3 : 4
+
+const heatDayLabel = (day: string, minutes: number) => {
+  const date = new Date(`${day}T00:00:00`)
+  const formatted = new Intl.DateTimeFormat('ru-RU', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  }).format(date)
+  return minutes ? `${formatted}: ${minutes} мин` : formatted
+}
+
 const MILESTONE_NAMES: Record<number, string> = {
   10: 'Первый рубеж',
   20: 'На волне',
@@ -348,6 +361,20 @@ export default function App() {
     return list
   }, [streak.current, streak.best])
   const time = `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`
+  const heatWeeks = useMemo(() => {
+    const weekday = (new Date(`${today}T00:00:00`).getDay() + 6) % 7
+    const start = shiftDay(today, -weekday - 51 * 7)
+    const weeks: { day: string; minutes: number }[][] = []
+    for (let w = 0; w < 52; w += 1) {
+      const column: { day: string; minutes: number }[] = []
+      for (let d = 0; d < 7; d += 1) {
+        const key = shiftDay(start, w * 7 + d)
+        column.push({ day: key, minutes: days[key] ?? 0 })
+      }
+      weeks.push(column)
+    }
+    return weeks
+  }, [days, today])
   const displayDate = new Intl.DateTimeFormat('ru-RU', {
     day: 'numeric',
     month: 'long',
@@ -569,6 +596,40 @@ export default function App() {
             aria-valuenow={progress}
           >
             <div className="h-full rounded-[2px] bg-[#1a1a1a] transition-all duration-300 dark:bg-white" style={{ width: `${progress}%` }} />
+          </div>
+        </section>
+
+        <section className="card p-5" aria-labelledby="heatmap-heading">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 id="heatmap-heading" className="text-sm font-semibold text-[#1a1a1a] dark:text-white">
+              Активность за год
+            </h2>
+            <div className="flex items-center gap-1.5 text-[0.68rem] text-[#1a1a1a]/55 dark:text-white/55">
+              <span>Меньше</span>
+              <div className="flex gap-[3px]" aria-hidden="true">
+                {[0, 1, 2, 3, 4].map((level) => (
+                  <div key={level} className={`heat-cell ${level ? `heat-cell--l${level}` : ''}`} />
+                ))}
+              </div>
+              <span>Больше</span>
+            </div>
+          </div>
+          <div
+            className="heatmap"
+            role="img"
+            aria-label="Тепловая карта концентрации за последний год: 52 недели, яркость клетки — минуты фокуса за день"
+          >
+            {heatWeeks.map((week, index) => (
+              <div key={index} className="heat-column">
+                {week.map(({ day, minutes }) => (
+                  <div
+                    key={day}
+                    className={`heat-cell ${heatLevel(minutes) ? `heat-cell--l${heatLevel(minutes)}` : ''}`}
+                    title={heatDayLabel(day, minutes)}
+                  />
+                ))}
+              </div>
+            ))}
           </div>
         </section>
 

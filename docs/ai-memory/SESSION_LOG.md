@@ -65,3 +65,14 @@
 - Ветка `chore/cleanup-origin-traces`, 6 коммитов, история не переписывалась. Удалялись: 4 Figma-плагина в `vite.config.ts`, каталог `.figma/`, комментарии `figma:*` в `index.html`, правила `.figma` в `.gitignore`, фирменный favicon. Пакет `figma-make-app` → `focus` (lockfile перегенерирован `pnpm install`). Метатеги (description, robots noindex, favicon, og:) перенесены из плагина в `index.html` статикой; `public/robots.txt` сохранён.
 - Baseline/итог: build + tsc EXIT=0; `dist/` чист после grep; скриншоты light/dark «до/после» идентичны (`/tmp/opencode/baseline-*.png`, `after-*.png`); инвентаризация — `/tmp/opencode/cleanup-inventory.md`.
 - Открытые вопросы: имя пакета (`focus`?) и `noindex/robots.txt Disallow: /` (сохранены как были); PROJECT_AUDIT.md и записи памяти содержат исторические упоминания; судьба git-истории (10 коммитов касаются figma-файлов).
+
+## 2026-10-30 — Пресеты темпа 25/5 и 50/10, обязательный длинный перерыв
+- `src/App.tsx`: `Mode` + `'longRest'`, длительности выводятся из `settings`, добавлены `PRESETS`, `LONG_BREAK_MINUTES = 15`, `SESSIONS_PER_CYCLE = 4`.
+- Новые ключи localStorage: `focus-settings` (`{ work, rest }`) и `focus-sessions` (`{ date, count }`), чтение с валидацией/клампом, запись через `useEffect` + `try/catch`.
+- После 4 завершённых рабочих сессий — автопереход в `longRest` (15 мин); счётчик обнуляется при завершении перерыва и при подтверждённом пропуске; кнопка «Пропустить перерыв» и баннер «Начать перерыв» после перезагрузки; переключатели режима/темпа заблокированы в `longRest`.
+- Проверено: `npx tsc --noEmit` — EXIT=0. Рантайм в браузере не проверялся (проверяет пользователь); `src/index.css` и зависимости не менялись.
+
+## 2026-10-30 — Автотесты Vitest + Testing Library
+- Добавлены `vitest`, `jsdom`, `@testing-library/react`, `@testing-library/jest-dom` (dev) и скрипты `test`/`test:watch`; созданы `vitest.config.ts`, `src/test/setup.ts`, `src/App.test.tsx`.
+- 16 тестов: новые фичи (пресеты, счётчик сессий, длинный перерыв, баннер после перезагрузки) + регрессия (минуты/режимы, localStorage, задачи, тема, серия дней). Прод-код не менялся.
+- Проверено: `pnpm test` — 16/16 passed, `npx tsc --noEmit` — EXIT=0. Настоящих багов тесты не выявили.

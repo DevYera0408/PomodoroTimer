@@ -1,12 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 
-type Mode = 'work' | 'rest'
+type Mode = 'work' | 'rest' | 'longRest'
 type Task = { id: string; text: string; completed: boolean; completedDate?: string }
 type DailyStats = { date: string; focusMinutes: number }
 type DayMinutes = Record<string, number>
 type StreakData = { current: number; best: number }
+type Settings = { work: number; rest: number }
+type Sessions = { date: string; count: number }
 
-const DURATIONS: Record<Mode, number> = { work: 25 * 60, rest: 5 * 60 }
+const PRESETS: Settings[] = [
+  { work: 25, rest: 5 },
+  { work: 50, rest: 10 },
+]
+const LONG_BREAK_MINUTES = 15
+const SESSIONS_PER_CYCLE = 4
 const FOCUS_GOAL_MINUTES = 60
 
 const dateKey = () => {
@@ -71,6 +78,31 @@ const readStreak = (): StreakData => {
     // Start with an empty streak if saved data cannot be read.
   }
   return { current: 0, best: 0 }
+}
+
+const readSettings = (): Settings => {
+  try {
+    const saved = JSON.parse(localStorage.getItem('focus-settings') ?? '{}')
+    if (saved && typeof saved === 'object') {
+      const preset = PRESETS.find((item) => item.work === saved.work && item.rest === saved.rest)
+      if (preset) return preset
+    }
+  } catch {
+    // Fall back to the default pace if saved settings cannot be read.
+  }
+  return PRESETS[0]
+}
+
+const readSessions = (): Sessions => {
+  try {
+    const saved = JSON.parse(localStorage.getItem('focus-sessions') ?? '{}')
+    if (saved && typeof saved === 'object' && saved.date === dateKey() && typeof saved.count === 'number') {
+      return { date: saved.date, count: Math.min(SESSIONS_PER_CYCLE, Math.max(0, Math.round(saved.count))) }
+    }
+  } catch {
+    // Start the cycle over if saved data cannot be read.
+  }
+  return { date: dateKey(), count: 0 }
 }
 
 const shiftDay = (key: string, delta: number) => {
@@ -230,8 +262,10 @@ export default function App() {
   const [days, setDays] = useState<DayMinutes>(readDays)
   const [streak, setStreak] = useState<StreakData>(readStreak)
   const [reward, setReward] = useState<number>()
+  const [settings, setSettings] = useState<Settings>(readSettings)
+  const [sessions, setSessions] = useState<Sessions>(readSessions)
   const [mode, setMode] = useState<Mode>('work')
-  const [seconds, setSeconds] = useState(DURATIONS.work)
+  const [seconds, setSeconds] = useState(settings.work * 60)
   const [running, setRunning] = useState(false)
   const [input, setInput] = useState('')
   const [newTaskId, setNewTaskId] = useState<string>()
@@ -247,6 +281,11 @@ export default function App() {
   const sessionDayRef = useRef(dateKey())
   const streakSeenRef = useRef(streak.current)
   const today = stats.date
+  const durations: Record<Mode, number> = {
+    work: settings.work * 60,
+    rest: settings.rest * 60,
+    longRest: LONG_BREAK_MINUTES * 60,
+  }
 
   useEffect(() => {
     try {
@@ -271,6 +310,18 @@ export default function App() {
       localStorage.setItem('focus-streak', JSON.stringify(streak))
     } catch {}
   }, [streak])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('focus-settings', JSON.stringify(settings))
+    } catch {}
+  }, [settings])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('focus-sessions', JSON.stringify(sessions))
+    } catch {}
+  }, [sessions])
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', dark)
@@ -314,11 +365,22 @@ export default function App() {
     if (seconds > 0) return
     playBeep()
     if (mode === 'work') {
-      setMode('rest')
-      setSeconds(DURATIONS.rest)
+      const count = Math.min(SESSIONS_PER_CYCLE, sessions.count + 1)
+      setSessions({ date: dateKey(), count })
+      if (count >= SESSIONS_PER_CYCLE) {
+        setMode('longRest')
+        setSeconds(LONG_BREAK_MINUTES * 60)
+      } else {
+        setMode('rest')
+        setSeconds(settings.rest * 60)
+      }
+    } else if (mode === 'longRest') {
+      setSessions({ date: dateKey(), count: 0 })
+      setMode('work')
+      setSeconds(settings.work * 60)
     } else {
       setMode('work')
-      setSeconds(DURATIONS.work)
+      setSeconds(settings.work * 60)
     }
   }, [seconds, mode])
 
@@ -381,9 +443,51 @@ export default function App() {
     weekday: 'long',
   }).format(new Date())
 
+  const confirmSkipBreak = () =>
+    window.confirm('Пропустить длинный перерыв? Дальше пойдёт работа.')
+
+  const resetCycle = () => setSessions({ date: dateKey(), count: 0 })
+
   const chooseMode = (next: Mode) => {
+    if (next === 'work' && sessions.count >= SESSIONS_PER_CYCLE) {
+      if (!confirmSkipBreak()) return
+      resetCycle()
+    }
     setMode(next)
-    setSeconds(DURATIONS[next])
+    setSeconds(durations[next])
+    setRunning(false)
+  }
+
+  const choosePreset = (preset: Settings) => {
+    setSettings(preset)
+    setMode('work')
+    setSeconds(preset.work * 60)
+    setRunning(false)
+  }
+
+  const toggleRunning = () => {
+    if (running) {
+      setRunning(false)
+      return
+    }
+    if (mode === 'work' && sessions.count >= SESSIONS_PER_CYCLE) {
+      if (!confirmSkipBreak()) return
+      resetCycle()
+    }
+    setRunning(true)
+  }
+
+  const startLongBreak = () => {
+    setMode('longRest')
+    setSeconds(LONG_BREAK_MINUTES * 60)
+    setRunning(true)
+  }
+
+  const skipLongBreak = () => {
+    if (!confirmSkipBreak()) return
+    resetCycle()
+    setMode('work')
+    setSeconds(durations.work)
     setRunning(false)
   }
 
@@ -435,27 +539,84 @@ export default function App() {
         </header>
 
         <section className="card p-5 sm:p-7" aria-labelledby="timer-heading">
-          <h2 id="timer-heading" className="mb-3 text-xs font-semibold text-[#1a1a1a]/70 dark:text-white/70">Таймер</h2>
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h2 id="timer-heading" className="text-xs font-semibold text-[#1a1a1a]/70 dark:text-white/70">Таймер</h2>
+            <div className="flex items-center gap-2 text-xs text-[#1a1a1a]/70 dark:text-white/70">
+              <span className="flex items-center gap-1" aria-hidden="true">
+                {Array.from({ length: SESSIONS_PER_CYCLE }, (_, index) => (
+                  <span
+                    key={index}
+                    className={`size-2 rounded-full ${
+                      index < sessions.count
+                        ? 'bg-[#1a1a1a] dark:bg-white'
+                        : 'border border-[#1a1a1a]/30 dark:border-white/35'
+                    }`}
+                  />
+                ))}
+              </span>
+              <span className="tabular-nums" aria-hidden="true">
+                {sessions.count} / {SESSIONS_PER_CYCLE}
+              </span>
+              <span className="sr-only">
+                Сделано {sessions.count} из {SESSIONS_PER_CYCLE} сессий до длинного перерыва
+              </span>
+            </div>
+          </div>
           <div className="relative grid grid-cols-2 rounded-[4px] border border-[#1a1a1a]/15 p-1 dark:border-white/20">
-            <span
-              className={`mode-indicator ${mode === 'rest' ? 'translate-x-full' : 'translate-x-0'}`}
-              aria-hidden="true"
-            />
+            {mode !== 'longRest' && (
+              <span
+                className={`mode-indicator ${mode === 'rest' ? 'translate-x-full' : 'translate-x-0'}`}
+                aria-hidden="true"
+              />
+            )}
             {(['work', 'rest'] as Mode[]).map((item) => (
               <button
                 key={item}
-                className={`relative z-10 rounded-[4px] px-3 py-2.5 text-sm font-semibold whitespace-nowrap transition-colors ${
+                className={`relative z-10 rounded-[4px] px-3 py-2.5 text-sm font-semibold whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
                   mode === item ? 'text-white dark:text-black' : 'text-[#1a1a1a]/55 dark:text-white/55'
                 }`}
                 onClick={() => chooseMode(item)}
                 aria-pressed={mode === item}
+                disabled={mode === 'longRest'}
               >
-                {item === 'work' ? 'Работа' : 'Отдых'} · {DURATIONS[item] / 60} мин
+                {item === 'work' ? 'Работа' : 'Отдых'} · {durations[item] / 60} мин
               </button>
             ))}
           </div>
 
+          <div className="mt-3 flex items-center justify-between gap-3">
+            <span id="pace-label" className="text-xs font-semibold text-[#1a1a1a]/70 dark:text-white/70">
+              Темп
+            </span>
+            <div
+              className="grid grid-cols-2 gap-1 rounded-[4px] border border-[#1a1a1a]/15 p-1 dark:border-white/20"
+              role="group"
+              aria-labelledby="pace-label"
+            >
+              {PRESETS.map((preset) => (
+                <button
+                  key={preset.work}
+                  className={`rounded-[4px] px-3 py-1.5 text-xs font-semibold tabular-nums transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+                    preset.work === settings.work
+                      ? 'bg-[#1a1a1a] text-white dark:bg-white dark:text-black'
+                      : 'text-[#1a1a1a]/55 dark:text-white/55'
+                  }`}
+                  onClick={() => choosePreset(preset)}
+                  aria-pressed={preset.work === settings.work}
+                  disabled={mode === 'longRest'}
+                >
+                  {preset.work}/{preset.rest}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="py-6 text-center sm:py-8">
+            {mode === 'longRest' && (
+              <p className="mb-2 text-sm font-semibold text-[#1a1a1a]/70 dark:text-white/70">
+                Длинный перерыв · {LONG_BREAK_MINUTES} мин
+              </p>
+            )}
             <p className="timer-digits text-[clamp(4rem,20vw,5.5rem)] leading-none font-medium tracking-tight text-[#1a1a1a] tabular-nums dark:text-white">
               {time}
             </p>
@@ -464,7 +625,7 @@ export default function App() {
           <div className="grid grid-cols-[1fr_auto] gap-3">
             <button
               className="primary-button inline-flex items-center justify-center gap-2.5"
-              onClick={() => setRunning((value) => !value)}
+              onClick={toggleRunning}
             >
               {running ? <PauseIcon /> : <PlayIcon />}
               {running ? 'Пауза' : 'Старт'}
@@ -473,12 +634,29 @@ export default function App() {
               className="secondary-button"
               onClick={() => {
                 setRunning(false)
-                setSeconds(DURATIONS[mode])
+                setSeconds(durations[mode])
               }}
             >
               Сброс
             </button>
           </div>
+
+          {mode === 'longRest' && (
+            <button className="secondary-button mt-3 w-full" onClick={skipLongBreak}>
+              Пропустить перерыв
+            </button>
+          )}
+
+          {mode !== 'longRest' && sessions.count >= SESSIONS_PER_CYCLE && (
+            <div className="mt-3 flex flex-col gap-2 rounded-[4px] border border-[#1a1a1a]/15 p-3 dark:border-white/20 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm text-[#1a1a1a]/70 dark:text-white/70">
+                Нужен длинный перерыв — {SESSIONS_PER_CYCLE} сессии позади
+              </p>
+              <button className="secondary-button" onClick={startLongBreak}>
+                Начать перерыв
+              </button>
+            </div>
+          )}
         </section>
 
         <section className="card p-5" aria-labelledby="streak-heading">

@@ -19,3 +19,9 @@
 - Решение: отдельный приватный пакет `server/` со своими зависимостями и своим `tsconfig.json` (strict, NodeNext); сервер — Fastify 5 на Node 22, порт из `PORT` (дефолт 3000). БД и Prisma, а также CORS/rate-limit/auth/Docker отложены до этапа 3 и далее.
 - Причины: минимум зависимостей и кода на старте; этап 2 можно делать без выбора хостинга БД; клиент остаётся нетронутым (его `package.json` и lockfile не меняются), пакеты изолированы.
 - Следствие: `server/pnpm-lock.yaml` — отдельный; сборка кладёт артефакты в `server/dist`. Postinstall у `esbuild` (зависимость `tsx`) не разрешён — `pnpm install` пишет `ERR_PNPM_IGNORED_BUILDS`, но `tsx`/`dev` и сборка работают.
+
+## D-004 — Тесты: отдельный `vitest.config.ts`, fake timers без микрозадач (2026-10-30)
+- Контекст: нужны автотесты на таймер/localStorage-логику без правок прод-кода и без риска сломать существующий `vite.config.ts` (плагины react + tailwind).
+- Решение: отдельный `vitest.config.ts` (он имеет приоритет для `vitest`, `vite build`/`dev` продолжают читать `vite.config.ts`); jsdom, `globals: true`, `setupFiles: ['./src/test/setup.ts']`; `fakeTimers.toFake` ограничен `setTimeout/clearTimeout/setInterval/clearInterval/Date` — `queueMicrotask`/`performance` не фейкаются, иначе ломается флаш React `act()`.
+- Причины: нулевые изменения прод-кода и сборки; `Date` фейкается ради стабильного `dateKey()` (системное время фиксируется на полдень).
+- Следствие: тесты не используют alias `@` (в отдельном конфиге он не объявлен) и не грузят CSS/Tailwind.
